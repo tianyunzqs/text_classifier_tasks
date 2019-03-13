@@ -36,6 +36,7 @@ def get_data(path):
         return None
 
     data = []
+    cls_num = dict(zip(cls.values(), [0] * len(cls)))
     re_doc = re.compile("^<doc>$")
     re_url = re.compile("^<url>.*</url>$")
     re_docno = re.compile("^<docno>.*</docno>$")
@@ -53,7 +54,8 @@ def get_data(path):
                 line = line.replace("<url>", "").replace("</url>", "")
                 line = line[:line.find(r".sohu.com")]
                 classify = get_cls(line)
-                if classify:
+                if classify and cls_num[classify] < 1000:
+                    cls_num[classify] += 1
                     d["classify"] = classify
             elif re_docno.search(line):
                 continue
@@ -61,7 +63,7 @@ def get_data(path):
                 d["title"] = strQ2B(line.replace("<contenttitle>", "").replace("</contenttitle>", ""))
             elif re_content.search(line) and d and d["classify"]:
                 d["content"] = strQ2B(line.replace("<content>", "").replace("</content>", ""))
-            elif re_doc2.search(line) and d:
+            elif re_doc2.search(line) and d and d["classify"]:
                 data.append(d)
                 d = {}
     return data
@@ -69,7 +71,14 @@ def get_data(path):
 
 if __name__ == '__main__':
     result = get_data(path=r"D:\alg_file\data\news_sohusite_xml.dat")
-    with open(r"D:\alg_file\data\data.dat", "w", encoding='utf-8') as f:
-        for res in result:
-            f.write(json.dumps(res, ensure_ascii=False))
-            f.write("\n")
+    cls_num = dict(zip(cls.values(), [0] * len(cls)))
+    with open(r"D:\alg_file\data\train.dat", "w", encoding='utf-8') as f_train, \
+            open(r"D:\alg_file\data\test.dat", "w", encoding='utf-8') as f_test:
+            for res in result:
+                cls_num[res["classify"]] += 1
+                if cls_num[res["classify"]] <= 800:
+                    f_train.write(json.dumps(res, ensure_ascii=False))
+                    f_train.write("\n")
+                else:
+                    f_test.write(json.dumps(res, ensure_ascii=False))
+                    f_test.write("\n")
