@@ -37,5 +37,5 @@ if __name__ == '__main__':
     train_data = load_data(train_path, stopwords=stopwords)
     test_path = r"../sample_data/test.dat"
     test_data = load_data(test_path, stopwords=stopwords)
-    pickle.dump(train_data, open("./train_data.pickle"))
-    pickle.dump(test_data, open("./test_data.pickle"))
+    pickle.dump(train_data, open("./train_data.pickle", "wb"))
+    pickle.dump(test_data, open("./test_data.pickle", "wb"))
