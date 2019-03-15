@@ -6,10 +6,6 @@
 import pickle
 
 import jieba.posseg as pseg
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer, TfidfTransformer
-from sklearn.linear_model.logistic import LogisticRegression
-from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 
 
 def load_stopwords(path):
