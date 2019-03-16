@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 # @Time        : 2019/3/13 18:14
 # @Author      : tianyunzqs
-# @Description : 
+# @Description : 逻辑回归（Logistic Regression）——文本分类
 
 import pickle
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer, TfidfTransformer
 from sklearn.linear_model.logistic import LogisticRegression
-from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn import metrics
 
 
 def train_model(train_data, test_data):
@@ -21,21 +21,23 @@ def train_model(train_data, test_data):
     for cls, data in train_data.items():
         train_x += data
         train_y += [cls] * len(data)
+    # 训练tfidf模型
+    train_tfidf = transformer.fit_transform(vectorizer.fit_transform(np.array(train_x)))
+    # 训练逻辑回归模型
+    lr_cls = LogisticRegression(random_state=0, solver='lbfgs', multi_class='multinomial').fit(train_tfidf, train_y)
+    pickle.dump((vectorizer, transformer, lr_cls), open("./model.pickle", "wb"))
 
-    tfidf = transformer.fit_transform(vectorizer.fit_transform(np.array(train_x)))
-
-    # nb_model = BernoulliNB()
-    # nb_model.fit(tfidf, train_y)
-    nb_model = LogisticRegression(random_state=0, solver='lbfgs', multi_class='multinomial').fit(tfidf, train_y)
-    # pickle.dump((vectorizer, transformer, nb_model), open("./model.pickle", "wb"))
-
+    # 预测测试数据
+    y_true, y_pred = [], []
     for cls, data in test_data.items():
         for d in data:
-            tfidf2 = transformer.transform(vectorizer.transform([d]))
-            pred2 = nb_model.predict(tfidf2)
-            print(pred2)
-            break
-        break
+            test_tfidf = transformer.transform(vectorizer.transform([d]))
+            prediction = lr_cls.predict(test_tfidf)[0]
+            y_pred.append(prediction)
+            y_true.append(cls)
+    # 输出各类别测试测试参数
+    classify_report = metrics.classification_report(y_true, y_pred)
+    print(classify_report)
 
 
 if __name__ == '__main__':
