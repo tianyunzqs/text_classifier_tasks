@@ -72,13 +72,17 @@ def get_data(path):
 if __name__ == '__main__':
     result = get_data(path=r"D:\alg_file\data\news_sohusite_xml.dat")
     cls_num = dict(zip(cls.values(), [0] * len(cls)))
-    with open(r"D:\alg_file\data\train.dat", "w", encoding='utf-8') as f_train, \
-            open(r"D:\alg_file\data\test.dat", "w", encoding='utf-8') as f_test:
+    with open(r"D:\alg_file\data\train20190403.dat", "w", encoding='utf-8') as f_train, \
+            open(r"D:\alg_file\data\dev20190403.dat", "w", encoding='utf-8') as f_dev, \
+            open(r"D:\alg_file\data\test20190403.dat", "w", encoding='utf-8') as f_test:
             for res in result:
                 cls_num[res["classify"]] += 1
-                if cls_num[res["classify"]] <= 800:
+                if cls_num[res["classify"]] <= 700:
                     f_train.write(json.dumps(res, ensure_ascii=False))
                     f_train.write("\n")
+                elif 700 < cls_num[res["classify"]] <= 800:
+                    f_dev.write(json.dumps(res, ensure_ascii=False))
+                    f_dev.write("\n")
                 else:
                     f_test.write(json.dumps(res, ensure_ascii=False))
                     f_test.write("\n")
