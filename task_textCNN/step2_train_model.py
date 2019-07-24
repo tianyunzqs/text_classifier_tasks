@@ -5,6 +5,7 @@ import sys
 import datetime
 import pickle
 import json
+import time
 from collections import OrderedDict
 
 import tensorflow as tf
@@ -69,6 +70,7 @@ for cls, data in test_data.items():
     x_test.extend(data)
     y_test.extend([classify[cls]] * len(data))
 
+t1 = time.time()
 max_document_length = max([len(x.split(" ")) for x in x_train])
 vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
 x_train = np.array(list(vocab_processor.fit_transform(x_train)))
@@ -161,7 +163,7 @@ with tf.Graph().as_default():
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
 
         # Write vocabulary
-        vocab_processor.save("./models/vocab33")
+        vocab_processor.save("./models/vocab.model")
 
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
@@ -253,8 +255,8 @@ with tf.Graph().as_default():
                 y_acc = y_acc / len(y_true)
                 print(classify_report)
                 print(y_acc)
-                fout.write(classify_report)
-                fout.write(y_acc)
+                fout.write(str(classify_report))
+                fout.write(str(y_acc))
                 fout.flush()
 
                 if y_acc > best_acc:
@@ -263,3 +265,6 @@ with tf.Graph().as_default():
                     print("Saved model checkpoints to {}\n".format(path))
                     fout.write("Saved model checkpoints to {}\n".format(path))
                     fout.flush()
+
+t2 = time.time()
+print('train model over. it took {0}ms'.format((t2 - t1)))
