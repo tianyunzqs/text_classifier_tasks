@@ -27,6 +27,7 @@ import tokenization
 import tensorflow as tf
 import json
 import random
+import time
 
 flags = tf.flags
 
@@ -39,13 +40,13 @@ flags.DEFINE_string(
     "for the task.")
 
 flags.DEFINE_string(
-    "bert_config_file", "D:/alg_file/chinese_L-12_H-768_A-12/bert_config.json",
+    "bert_config_file", "/home/fhpt/zqs/alg_nlp/pre_train_model/chinese_L-12_H-768_A-12/bert_config.json",
     "The config json file corresponding to the pre-trained BERT model. "
     "This specifies the model architecture.")
 
 flags.DEFINE_string("task_name", "news", "The name of the task to train.")
 
-flags.DEFINE_string("vocab_file", "D:/alg_file/chinese_L-12_H-768_A-12/vocab.txt",
+flags.DEFINE_string("vocab_file", "/home/fhpt/zqs/alg_nlp/pre_train_model/chinese_L-12_H-768_A-12/vocab.txt",
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_string(
@@ -55,7 +56,7 @@ flags.DEFINE_string(
 # Other parameters
 
 flags.DEFINE_string(
-    "init_checkpoint", "D:/alg_file/chinese_L-12_H-768_A-12/bert_model.ckpt",
+    "init_checkpoint", "/home/fhpt/zqs/alg_nlp/pre_train_model/chinese_L-12_H-768_A-12/bert_model.ckpt",
     "Initial checkpoint (usually from a pre-trained BERT model).")
 
 flags.DEFINE_bool(
@@ -382,31 +383,38 @@ class NewsProcessor(DataProcessor):
     def get_train_examples(self, data_dir):
         """See base class."""
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "train20190403.dat")), "train")
+            self._read_tsv(os.path.join(data_dir, "cnews.train.txt")), "train")
 
     def get_dev_examples(self, data_dir):
         """See base class."""
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "dev20190403.dat")), "dev")
+            self._read_tsv(os.path.join(data_dir, "cnews.val.txt")), "dev")
 
     def get_test_examples(self, data_dir):
         """See base class."""
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "test20190403.dat")), "test")
+            self._read_tsv(os.path.join(data_dir, "cnews.test.txt")), "test")
 
     def get_labels(self):
         """See base class."""
-        return ['运动', '股票', '商业', '娱乐', 'IT', '教育', '宝宝', '财政', '出国']
+        return ['体育', '娱乐', '家居', '房产', '教育', '时尚', '时政', '游戏', '科技', '财经']
 
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
         examples = []
         for (i, line) in enumerate(lines):
             guid = "%s-%s" % (set_type, i)
-            line_json = json.loads(line)
-            classify = line_json["classify"]
+            line = line.strip()
+            parts = line.split('\t')
+            if len(parts) != 2:
+                continue
+            classify, text = parts[0], parts[1]
             self.labels.add(classify)
-            text = line_json["title"] + " " + line_json["content"]
+
+            # line_json = json.loads(line)
+            # classify = line_json["classify"]
+            # self.labels.add(classify)
+            # text = line_json["title"] + " " + line_json["content"]
             text_a = tokenization.convert_to_unicode(text)
             label = tokenization.convert_to_unicode(classify)
             examples.append(
@@ -1025,9 +1033,12 @@ def main(_):
 
 
 if __name__ == "__main__":
+    t1 = time.time()
     flags.mark_flag_as_required("data_dir")
     flags.mark_flag_as_required("task_name")
     flags.mark_flag_as_required("vocab_file")
     flags.mark_flag_as_required("bert_config_file")
     flags.mark_flag_as_required("output_dir")
     tf.app.run()
+    t2 = time.time()
+    print('train model over. it took {0}s'.format((t2 - t1)))
