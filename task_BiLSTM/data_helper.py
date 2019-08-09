@@ -3,120 +3,151 @@
 # @Author      : tianyunzqs
 # @Description :
 
-import pickle
-
 import numpy as np
 
-# file path
-dataset_path = 'subj0.pkl'
+
+class Vocab(object):
+    """
+    词表封装模块
+    """
+    def __init__(self, filename, num_word_threshold):
+        self._word_to_id = {}
+        self._unk = -1
+        self._num_word_threshold = num_word_threshold
+        self._read_dict(filename)
+
+    # 读取文件每一行，赋值一个id
+    def _read_dict(self, filename):
+        with open(filename, 'r', encoding='UTF-8') as f:
+            lines = f.readlines()
+            for line in lines:
+                word, frequency = line.strip('\r\n').split('\t')
+                frequency = int(frequency)
+                if frequency < self._num_word_threshold:
+                    continue
+                idx = len(self._word_to_id)
+                if word == '<UNK>':
+                    self._unk = idx
+                self._word_to_id[word] = idx
+
+    def word_to_id(self, word):
+        return self._word_to_id.get(word, self._unk)
+
+    @property
+    def unk(self):
+        return self._unk
+
+    def size(self):
+        return len(self._word_to_id)
+
+    def sentence_to_id(self, sentence):
+        word_ids = [self.word_to_id(cur_word) \
+                    for cur_word in sentence.split()]
+        return word_ids
 
 
-def load_data(max_len, batch_size, n_words=20000, valid_portion=0.1, sort_by_len=True):
-    print('load data from %s', dataset_path)
-    with open(dataset_path, 'rb') as f:
-        train_set = np.array(pickle.load(f))
-        test_set = np.array(pickle.load(f))
+class CategeoryDict(object):
+    """
+    类别封装模块
+    """
+    def __init__(self, filename):
+        self._categeory_to_id = {}
+        with open(filename, 'r', encoding='UTF-8') as f:
+            lines = f.readlines()
+        for line in lines:
+            categeory = line.strip('\r\n')
+            idx = len(self._categeory_to_id)
+            self._categeory_to_id[categeory] = idx
 
-    train_set_x, train_set_y = train_set
-    # train_set length
-    n_samples = len(train_set_x)
-    # shuffle and generate train and valid dataset
-    sidx = np.random.permutation(n_samples)
-    n_train = int(np.round(n_samples * (1. - valid_portion)))
-    valid_set_x = [train_set_x[s] for s in sidx[n_train:]]
-    valid_set_y = [train_set_y[s] for s in sidx[n_train:]]
-    train_set_x = [train_set_x[s] for s in sidx[:n_train]]
-    train_set_y = [train_set_y[s] for s in sidx[:n_train]]
+    def categeory_to_id(self, categeory):
+        if not categeory in self._categeory_to_id:
+            raise Exception(
+                "%s is not in our categeory list" % categeory)
+        return self._categeory_to_id[categeory]
 
-    train_set = (train_set_x, train_set_y)
-    valid_set = (valid_set_x, valid_set_y)
+    def size(self):
+        return len(self._categeory_to_id)
 
-    # remove unknow words
-    def remove_unk(x):
-        return [[1 if w >= n_words else w for w in sen] for sen in x]
 
-    test_set_x, test_set_y = test_set
-    valid_set_x, valid_set_y = valid_set
-    train_set_x, train_set_y = train_set
+class TextDataSet:
+    """
+    数据集封装模块
+    """
+    def __init__(self, filename, vocab, categeory_vocab, num_timesteps):
+        self._vocab = vocab
+        self._categeory_vocab = categeory_vocab
+        self._num_timesteps = num_timesteps
+        self._inputs = []  # matrxi
+        self._outputs = []  # Vec
+        self._indicator = 0
+        self._parse_file(filename)
 
-    train_set_x = remove_unk(train_set_x)
-    valid_set_x = remove_unk(valid_set_x)
-    test_set_x = remove_unk(test_set_x)
+    def _parse_file(self, filename):
+        with open(filename, 'r', encoding='UTF-8') as f:
+            lines = f.readlines()
 
-    def len_argsort(seq):
-        return sorted(range(len(seq)), key=lambda x: len(seq[x]))
+        for line in lines:
+            label, content = line.strip('\r\n').split('\t')
+            id_label = self._categeory_vocab.categeory_to_id(label)
+            id_words = self._vocab.sentence_to_id(content)
+            id_words = id_words[0:self._num_timesteps]
+            padding_num = self._num_timesteps - len(id_words)
+            id_words = id_words + [self._vocab.unk for i in range(padding_num)]
+            self._inputs.append(id_words)
+            self._outputs.append(id_label)
+        # 转换为numpy array
+        self._inputs = np.asarray(self._inputs, dtype=np.int32)
+        self._outputs = np.asarray(self._outputs, dtype=np.int32)
+        self._random_shuffle()
 
-    if sort_by_len:
-        sorted_index = len_argsort(test_set_x)
-        test_set_x = [test_set_x[i] for i in sorted_index]
-        test_set_y = [test_set_y[i] for i in sorted_index]
+    def _random_shuffle(self):
+        p = np.random.permutation(len(self._inputs))
+        self._inputs = self._inputs[p]
+        self._outputs = self._outputs[p]
 
-        sorted_index = len_argsort(valid_set_x)
-        valid_set_x = [valid_set_x[i] for i in sorted_index]
-        valid_set_y = [valid_set_y[i] for i in sorted_index]
+    def next_batch(self, batch_size):
+        end_indicator = self._indicator + batch_size
+        if end_indicator > len(self._inputs):
+            self._random_shuffle()
+            self._indicator = 0
+            end_indicator = batch_size
+        if end_indicator > len(self._inputs):
+            raise Exception("batch_size: %d is too large" % batch_size)
 
-        sorted_index = len_argsort(train_set_x)
-        train_set_x = [train_set_x[i] for i in sorted_index]
-        train_set_y = [train_set_y[i] for i in sorted_index]
+        batch_inputs = self._inputs[self._indicator:end_indicator]
+        batch_outputs = self._outputs[self._indicator:end_indicator]
+        self._indicator = end_indicator
+        return batch_inputs, batch_outputs
 
-    train_set = (train_set_x, train_set_y)
-    valid_set = (valid_set_x, valid_set_y)
-    test_set = (test_set_x, test_set_y)
-
-    new_train_set_x = np.zeros([len(train_set[0]), max_len])
-    new_train_set_y = np.zeros(len(train_set[0]))
-
-    new_valid_set_x = np.zeros([len(valid_set[0]), max_len])
-    new_valid_set_y = np.zeros(len(valid_set[0]))
-
-    new_test_set_x = np.zeros([len(test_set[0]), max_len])
-    new_test_set_y = np.zeros(len(test_set[0]))
-
-    mask_train_x = np.zeros([max_len, len(train_set[0])])
-    mask_test_x = np.zeros([max_len, len(test_set[0])])
-    mask_valid_x = np.zeros([max_len, len(valid_set[0])])
-
-    def padding_and_generate_mask(x, y, new_x, new_y, new_mask_x):
-        for i, (x, y) in enumerate(zip(x, y)):
-            # whether to remove sentences with length larger than maxlen
-            if len(x) <= max_len:
-                new_x[i, 0:len(x)] = x
-                new_mask_x[0:len(x), i] = 1
-                new_y[i] = y
+    def batch_iter(self, batch_size, num_epochs, shuffle=True):
+        """
+        Generates a batch iterator for a dataset.
+        """
+        data_size = len(self._inputs)
+        num_batches_per_epoch = int((data_size - 1) / batch_size) + 1
+        for epoch in range(num_epochs):
+            # Shuffle the data at each epoch
+            if shuffle:
+                shuffle_indices = np.random.permutation(data_size)
+                shuffled_inputs = self._inputs[shuffle_indices]
+                shuffled_outputs = self._outputs[shuffle_indices]
             else:
-                new_x[i] = x[0:max_len]
-                new_mask_x[:, i] = 1
-                new_y[i] = y
-        new_set = (new_x, new_y, new_mask_x)
-        del new_x, new_y
-        return new_set
+                shuffled_inputs = self._inputs
+                shuffled_outputs = self._outputs
 
-    train_set = padding_and_generate_mask(train_set[0], train_set[1], new_train_set_x, new_train_set_y, mask_train_x)
-    test_set = padding_and_generate_mask(test_set[0], test_set[1], new_test_set_x, new_test_set_y, mask_test_x)
-    valid_set = padding_and_generate_mask(valid_set[0], valid_set[1], new_valid_set_x, new_valid_set_y, mask_valid_x)
-
-    return train_set, valid_set, test_set
+            for batch_num in range(num_batches_per_epoch):
+                start_index = batch_num * batch_size
+                end_index = (batch_num + 1) * batch_size
+                if end_index <= data_size:
+                # end_index = min((batch_num + 1) * batch_size, data_size)
+                    yield epoch + 1, shuffled_inputs[start_index:end_index], shuffled_outputs[start_index:end_index]
 
 
-# return batch dataset
-def batch_iter(data, batch_size):
-    # get dataset and label
-    x, y, mask_x = data
-    x = np.array(x)
-    y = np.array(y)
-    data_size = len(x)
-    num_batches_per_epoch = int((data_size-1) / batch_size)
-    for batch_index in range(num_batches_per_epoch):
-        start_index = batch_index * batch_size
-        end_index = min((batch_index+1) * batch_size, data_size)
-        return_x = x[start_index: end_index]
-        return_y = y[start_index: end_index]
-        return_mask_x = mask_x[:, start_index:end_index]
-        # if(len(return_x)<batch_size):
-        #     print(len(return_x))
-        #     print return_x
-        #     print return_y
-        #     print return_mask_x
-        #     import sys
-        #     sys.exit(0)
-        yield (return_x, return_y, return_mask_x)
+def compute_p_r_f(y_true, y_pred):
+    assert len(y_true) == len(y_pred), 'the length of y_true and y_pred is not equal.'
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    tp = np.sum(np.equal(y_true, y_pred))
+    p = tp / len(y_pred)
+    r = tp / len(y_true)
+    f = 2 * p * r / (p + r)
+    return p, r, f

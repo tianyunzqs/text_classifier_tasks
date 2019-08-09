@@ -16,10 +16,9 @@ class TextLSTM(object):
                  num_embedding_size,
                  num_lstm_nodes,
                  num_fc_nodes,
-                 num_classes,
-                 ):
+                 num_classes):
         self.inputs = tf.placeholder(tf.int32, [batch_size, sequence_length])
-        self.outputs = tf.placeholder(tf.int32, [batch_size, num_classes])
+        self.outputs = tf.placeholder(tf.int32, [batch_size, ])
         # 随机失活剩下的神经单元  keep_prob = 1-dropout
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     
@@ -107,12 +106,12 @@ class TextLSTM(object):
     
         '''计算损失函数'''
         with tf.name_scope('metrics'):
-            # softmax_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=self.outputs)
-            softmax_loss = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.outputs)
+            softmax_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=self.outputs)
+            # softmax_loss = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.outputs)
             self.loss = tf.reduce_mean(softmax_loss)
 
         '''计算准确率'''
         with tf.name_scope("accuracy"):
             self.predictions = tf.argmax(tf.nn.softmax(self.logits), 1, output_type=tf.int32, name="predictions")
-            correct_pred = tf.equal(self.predictions, tf.argmax(self.outputs, 1, output_type=tf.int32))
+            correct_pred = tf.equal(self.outputs, self.predictions)
             self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
