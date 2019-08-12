@@ -9,7 +9,7 @@ import pickle
 import jieba.posseg as pseg
 import tensorflow as tf
 
-from task_BiLSTM.text_lstm import TextLSTM
+from task_BiLSTM_inbuild.text_lstm import TextLSTM
 
 
 class Evaluation(object):
@@ -36,12 +36,10 @@ class Evaluation(object):
                 log_device_placement=self.config['log_device_placement'])
             self.sess = tf.Session(config=session_conf)
             with self.sess.as_default():
-                self.lstm = TextLSTM(sequence_length=self.config['num_timesteps'],
-                                     batch_size=self.config['batch_size'],
+                self.lstm = TextLSTM(
                                      vocab_size=self.vocab.size(),
                                      num_embedding_size=self.config['embedding_size'],
                                      num_lstm_nodes=self.config['num_lstm_nodes'],
-                                     num_fc_nodes=self.config['num_fc_nodes'],
                                      num_classes=len(self.config['labels']))
 
                 saver = tf.train.Saver()  # defaults to saving all variables - in this case w and b
@@ -61,8 +59,8 @@ class Evaluation(object):
         predictions = self.sess.run(
             [self.lstm.predictions],
             feed_dict={
-                self.lstm.inputs: [id_words] * self.config['batch_size'],
-                self.lstm.outputs: [0] * self.config['batch_size'],
+                self.lstm.inputs: [id_words],
+                self.lstm.outputs: [0],
                 self.lstm.keep_prob: 1.0
             })
 
