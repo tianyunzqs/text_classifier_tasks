@@ -94,8 +94,8 @@ class TextTransformer(object):
         gamma = tf.Variable(tf.ones(params_shape), dtype=tf.float32)
         normalized = (inputs - mean) / ((variance + epsilon) ** .5)
 
-        outputs = gamma * normalized + beta
-
+        # outputs = gamma * normalized + beta
+        outputs = tf.multiply(gamma, normalized) + beta
         return outputs
 
     def _multihead_attention(self, inputs, queries, keys, num_heads, epsilon, num_units=None):
