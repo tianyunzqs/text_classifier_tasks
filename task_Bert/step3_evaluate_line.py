@@ -134,7 +134,7 @@ else:
 with open("./config_file", encoding="utf8") as f:
     config = json.load(f)
 
-batch_size = 1
+
 max_seq_length = config['max_seq_length']
 label_list = config['label_list']
 num_labels = len(label_list)
@@ -153,8 +153,8 @@ with sess.as_default():
     with graph.as_default():
         print("going to restore checkpoint...")
         # sess.run(tf.global_variables_initializer())
-        input_ids_p = tf.placeholder(tf.int32, [batch_size, max_seq_length], name="input_ids")
-        input_mask_p = tf.placeholder(tf.int32, [batch_size, max_seq_length], name="input_mask")
+        input_ids_p = tf.placeholder(tf.int32, [None, max_seq_length], name="input_ids")
+        input_mask_p = tf.placeholder(tf.int32, [None, max_seq_length], name="input_mask")
 
         bert_config = modeling.BertConfig.from_json_file(os.path.join(bert_dir, 'bert_config.json'))
         total_loss, logits, trans, pred_ids = create_model(
@@ -163,6 +163,7 @@ with sess.as_default():
 
         saver = tf.train.Saver()
         saver.restore(sess, tf.train.latest_checkpoint(model_dir))
+        print('checkpoint restored.')
 
 tokenizer = tokenization.FullTokenizer(vocab_file=os.path.join(bert_dir, 'vocab.txt'), do_lower_case=True)
 
@@ -173,10 +174,7 @@ def evaluate_line(text):
         text_a = tokenization.convert_to_unicode(line)
         line_example = InputExample(guid='test_example', text_a=text_a, text_b=None, label=None)
         feature = convert_single_example(line_example, label_list, max_seq_length, tokenizer)
-        input_ids = np.reshape([feature.input_ids], (batch_size, max_seq_length))
-        input_mask = np.reshape([feature.input_mask], (batch_size, max_seq_length))
-        segment_ids = np.reshape([feature.segment_ids], (batch_size, max_seq_length))
-        return input_ids, input_mask, segment_ids
+        return feature.input_ids, feature.input_mask, feature.segment_ids
 
     input_ids, input_mask, segment_ids = convert(text)
 
@@ -184,8 +182,31 @@ def evaluate_line(text):
         input_ids_p: input_ids,
         input_mask_p: input_mask,
     }
-    pred_ids_result = sess.run([pred_ids], feed_dict)[0][0]
+    pred_ids_result = sess.run(pred_ids, feed_dict)[0]
     predict_label = label_list[np.argmax(pred_ids_result)]
+    return predict_label
+
+
+def evaluate_batch(text_list):
+
+    def convert(line):
+        text_a = tokenization.convert_to_unicode(line)
+        line_example = InputExample(guid='test_example', text_a=text_a, text_b=None, label=None)
+        feature = convert_single_example(line_example, label_list, max_seq_length, tokenizer)
+        return feature.input_ids, feature.input_mask, feature.segment_ids
+
+    input_ids_list, input_mask_list = [], []
+    for text in text_list:
+        input_ids, input_mask, segment_ids = convert(text)
+        input_ids_list.append(input_ids)
+        input_mask_list.append(input_mask)
+
+    feed_dict = {
+        input_ids_p: input_ids_list,
+        input_mask_p: input_mask_list,
+    }
+    pred_ids_result = sess.run(pred_ids, feed_dict)
+    predict_label = [label_list[np.argmax(res)] for res in pred_ids_result]
     return predict_label
 
 
