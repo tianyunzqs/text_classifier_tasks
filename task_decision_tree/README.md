@@ -16,3 +16,15 @@ class sklearn.tree.DecisionTreeClassifier(
     presort=False
 )
 ```
+
+|算法|支持模型|树结构|特征选择|连续值处理|缺失值处理|剪枝|
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+ID3|分类|多叉树|信息增益|不支持|不支持|不支持
+C4.5|分类|多叉树|信息增益比|支持|支持|支持
+CART|分类、回归|二叉树|基尼系数，均方差|支持|支持|支持
+
+# 参考
+1.[机器学习基础之一文读懂决策树](https://segmentfault.com/a/1190000020322548)<br/>
+2.[机器学习之-常见决策树算法(ID3、C4.5、CART)](https://shuwoom.com/?p=1452)<br/>
+3.[Python实现决策树2(CART分类树及CART回归树)](https://blog.csdn.net/weixin_43383558/article/details/84303339)<br>
+
