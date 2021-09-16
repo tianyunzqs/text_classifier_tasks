@@ -130,8 +130,10 @@ class DecisionTree(object):
             best_feature_idx = self.dataset_split_by_c45(x, y)
         else:
             raise KeyError
-        decision_tree = {best_feature_idx: {}}
-        feature_list = feature_list[:best_feature_idx] + feature_list[best_feature_idx + 1:]
+        best_feature = feature_list[int(best_feature_idx)]  # 最佳特征
+        decision_tree = {best_feature: {}}
+        # feature_list = feature_list[:best_feature_idx] + feature_list[best_feature_idx + 1:]
+        feature_list.pop(int(best_feature_idx))
         # get the list which attain the whole properties
         best_feature_values = set([sample[best_feature_idx] for sample in x])
         for value in best_feature_values:
@@ -141,7 +143,7 @@ class DecisionTree(object):
                     sub_dataset.append(list(featVec[:best_feature_idx]) + list(featVec[best_feature_idx + 1:]))
                     sub_labels.append(label)
 
-            decision_tree[best_feature_idx][value] = self.create_tree_by_id3_and_c45(sub_dataset, sub_labels, feature_list)
+            decision_tree[best_feature][value] = self.create_tree_by_id3_and_c45(sub_dataset, sub_labels, feature_list)
 
         return decision_tree
 
@@ -331,28 +333,28 @@ class DecisionTree(object):
 
 
 if __name__ == '__main__':
-    dt = DecisionTree(decision_tree_type='ID3')
-
-    X = [
-        [1, 0, 1],
-        [1, 0, 1],
-        [1, 1, 0],
-        [0, 0, 1],
-        [0, 1, 1]
-    ]
-    Y = [
-        'yes',
-        'yes',
-        'no',
-        'no',
-        'no'
-    ]
-
-    myTree = dt.train(X, Y)
-    print(myTree)
-    print(Y)
-    predict_label = dt.predict(myTree, [1, 1, 1])
-    print(predict_label)
+    # dt = DecisionTree(decision_tree_type='ID3')
+    #
+    # X = [
+    #     [1, 0, 1],
+    #     [1, 0, 1],
+    #     [1, 1, 0],
+    #     [0, 0, 1],
+    #     [0, 1, 1]
+    # ]
+    # Y = [
+    #     'yes',
+    #     'yes',
+    #     'no',
+    #     'no',
+    #     'no'
+    # ]
+    #
+    # myTree = dt.train(X, Y)
+    # print(myTree)
+    # print(Y)
+    # predict_label = dt.predict(myTree, [1, 1, 1])
+    # print(predict_label)
 
     X = [
         ["青年", "否", "否", "一般"],
@@ -379,16 +381,15 @@ if __name__ == '__main__':
         ["老年", "否", "是", "一般"],
     ]
 
-    dt = DecisionTree(decision_tree_type='CART', feature_list=['年龄', '工作', '房子', '信贷'])
+    dt = DecisionTree(decision_tree_type='C45', feature_list=['年龄', '工作', '房子', '信贷'])
     myTree = dt.train(X, Y)
     print(myTree)
-    print(Y)
-    predict_label = dt.predict(myTree, X_test[1])
-    print(predict_label)
-    predict_label = dt.predict(myTree, X_test[2])
-    print(predict_label)
-    predict_label = dt.predict(myTree, X_test[1])
-    print(predict_label)
-    predict_label = dt.predict(myTree, X_test[2])
-    print(predict_label)
+    # predict_label = dt.predict(myTree, X_test[1])
+    # print(predict_label)
+    # predict_label = dt.predict(myTree, X_test[2])
+    # print(predict_label)
+    # predict_label = dt.predict(myTree, X_test[1])
+    # print(predict_label)
+    # predict_label = dt.predict(myTree, X_test[2])
+    # print(predict_label)
     dt.createPlot(myTree)
