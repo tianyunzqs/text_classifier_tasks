@@ -69,9 +69,11 @@ def train_model():
     dev_tfidf = transformer.transform((vectorizer.transform(dev_x)))
     y_pred = model.predict(dev_tfidf)
     # 输出各类别测试测试参数
-    classify_report = metrics.classification_report(dev_y, y_pred)
-    with open(os.path.join(model_path, 'pred.txt'), 'w') as f:
+    classify_report = metrics.classification_report(dev_y, y_pred, digits=4)
+    with open(os.path.join(model_path, 'pred.txt'), 'w', encoding='utf-8') as f:
         f.write(classify_report)
+        f.write('\n')
+        f.write('训练耗时:{0}s'.format((t2 - t1)))
     print(classify_report)
 
 
