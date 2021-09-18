@@ -15,3 +15,4 @@ cnews数据集下载地址
 |native bayes|0.5314|
 |svm|0.5579|
 |bert|0.6064|
+|textcnn|0.5444|
