@@ -18,7 +18,7 @@ from keras.optimizers import Adam
 from keras.callbacks import ReduceLROnPlateau, Callback
 from sklearn import metrics
 project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 def load_data(path):
