@@ -50,7 +50,7 @@ def train_model():
     # 训练tfidf模型
     train_tfidf = transformer.fit_transform(vectorizer.fit_transform(np.array(train_x)))
     # 训练模型
-    svm_cls = KNeighborsClassifier(n_neighbors=10).fit(train_tfidf, train_y)
+    model = KNeighborsClassifier(n_neighbors=10).fit(train_tfidf, train_y)
     t2 = time.time()
     print('模型训练完成，耗时:{0}s'.format((t2 - t1)))
 
@@ -59,13 +59,13 @@ def train_model():
     if not os.path.exists(model_path):
         os.mkdir(model_path)
     with open(os.path.join(model_path, 'model.pickle'), 'wb') as f:
-        pickle.dump((vectorizer, transformer, svm_cls), f)
+        pickle.dump((vectorizer, transformer, model), f)
 
     # 验证集
     dev_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in dev_data]
     dev_y = [d[1] for d in dev_data]
     dev_tfidf = transformer.transform((vectorizer.transform(dev_x)))
-    y_pred = svm_cls.predict(dev_tfidf)
+    y_pred = model.predict(dev_tfidf)
     # 输出各类别测试测试参数
     classify_report = metrics.classification_report(dev_y, y_pred, digits=4)
     with open(os.path.join(model_path, 'pred.txt'), 'w', encoding='utf-8') as f:
