@@ -39,7 +39,7 @@ def train_model():
     stopwords = load_stopwords(os.path.join(project_path, 'data', 'stopwords.txt'))
 
     # train_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in train_data]
-    train_x = [' '.join([word for word in jieba.lcut(d[0])]) for d in train_data]
+    train_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in train_data]
     train_y = [d[1] for d in train_data]
 
     print('开始训练模型...')
@@ -51,7 +51,7 @@ def train_model():
     # 训练tfidf模型
     train_tfidf = transformer.fit_transform(vectorizer.fit_transform(np.array(train_x)))
     # 训练模型
-    model = DecisionTreeClassifier(max_depth=100, max_leaf_nodes=500, min_samples_leaf=3).fit(train_tfidf, train_y)
+    model = DecisionTreeClassifier(max_depth=None, max_leaf_nodes=320, min_samples_leaf=3).fit(train_tfidf, train_y)
     t2 = time.time()
     print('模型训练完成，耗时:{0}s'.format((t2 - t1)))
 
@@ -64,7 +64,7 @@ def train_model():
 
     # 验证集
     # dev_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in dev_data]
-    dev_x = [' '.join([word for word in jieba.lcut(d[0])]) for d in dev_data]
+    dev_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in dev_data]
     dev_y = [d[1] for d in dev_data]
     dev_tfidf = transformer.transform((vectorizer.transform(dev_x)))
     y_pred = model.predict(dev_tfidf)
