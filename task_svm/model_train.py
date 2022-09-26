@@ -38,8 +38,8 @@ def train_model():
     # 导入停用词
     stopwords = load_stopwords(os.path.join(project_path, 'data', 'stopwords.txt'))
 
-    # train_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in train_data]
-    train_x = [' '.join([word for word in jieba.lcut(d[0])]) for d in train_data]
+    train_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in train_data]
+    # train_x = [' '.join([word for word in jieba.lcut(d[0])]) for d in train_data]
     train_y = [d[1] for d in train_data]
 
     print('开始训练模型...')
@@ -63,8 +63,8 @@ def train_model():
         pickle.dump((vectorizer, transformer, model), f)
 
     # 验证集
-    # dev_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in dev_data]
-    dev_x = [' '.join([word for word in jieba.lcut(d[0])]) for d in dev_data]
+    dev_x = [' '.join([word for word in jieba.lcut(d[0]) if word not in stopwords]) for d in dev_data]
+    # dev_x = [' '.join([word for word in jieba.lcut(d[0])]) for d in dev_data]
     dev_y = [d[1] for d in dev_data]
     dev_tfidf = transformer.transform((vectorizer.transform(dev_x)))
     y_pred = model.predict(dev_tfidf)
