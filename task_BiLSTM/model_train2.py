@@ -9,26 +9,46 @@ import json
 import jieba
 import numpy as np
 from tqdm import tqdm
-import tensorflow as tf
+import keras.backend as K
 from keras.preprocessing.text import Tokenizer
 from keras.layers import *
 from keras.models import Model
 from keras.optimizers import Adam
-import keras.backend as K
 from keras.callbacks import ReduceLROnPlateau, Callback
+from bert4keras.snippets import DataGenerator, sequence_padding
 from sklearn import metrics
 project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-# config = tf.ConfigProto()
-# config.gpu_options.per_process_gpu_memory_fraction = 0.7
-# session = tf.Session(config=config)
-# K.set_session(session)
 
-# config = tf.compat.v1.ConfigProto()
-# config.gpu_options.per_process_gpu_memory_fraction = 0.7
-# session = tf.compat.v1.Session(config=config)
-# K.set_session(session)
+class WarmupExponentialDecay(Callback):
+    def __init__(self,lr_base=0.0002, lr_min=0.0, decay=0.0, warmup_epochs=0):
+        self.num_passed_batchs = 0          # 一个计数器
+        self.warmup_epochs = warmup_epochs
+        self.lr = lr_base                   # learning_rate_base
+        self.lr_min = lr_min                # 最小的起始学习率,此代码尚未实现
+        self.decay = decay                  # 指数衰减率
+        self.steps_per_epoch = 0            # 也是一个计数器
+
+    def on_batch_begin(self, batch, logs=None):
+        # params是模型自动传递给Callback的一些参数
+        if self.steps_per_epoch==0:
+            # 防止跑验证集的时候呗更改了
+            if self.params['steps'] is None:
+                self.steps_per_epoch = np.ceil(1. * self.params['samples'] / self.params['batch_size'])
+            else:
+                self.steps_per_epoch = self.params['steps']
+        if self.num_passed_batchs < self.steps_per_epoch * self.warmup_epochs:
+            K.set_value(self.model.optimizer.lr,
+                        self.lr*(self.num_passed_batchs + 1) / self.steps_per_epoch / self.warmup_epochs)
+        else:
+            K.set_value(self.model.optimizer.lr,
+                        self.lr*((1-self.decay)**(self.num_passed_batchs-self.steps_per_epoch*self.warmup_epochs)))
+        self.num_passed_batchs += 1
+
+    def on_epoch_begin(self,epoch,logs=None):
+        # 用来输出学习率的,可以删除
+        print("learning_rate:", K.get_value(self.model.optimizer.lr))
 
 
 def load_data(path):
@@ -37,35 +57,35 @@ def load_data(path):
         lines = f.readlines()
         for line in tqdm(lines):
             line_json = json.loads(line.strip())
-            data.append((line_json['sentence'], line_json['label']))
+            data.append((line_json['sentence'], int(line_json['label'])))
     return data
 
 
-MAX_LEN = 256
-batch_size = 64
+batch_size = 32
+MAX_LEN = 512
 # 加载数据集
 train_data = load_data(os.path.join(project_path, 'data', 'iflytek_public', 'train.json'))
 num_classes = len(set([d[1] for d in train_data]))
 dev_data = load_data(os.path.join(project_path, 'data', 'iflytek_public', 'dev.json'))
-x_train = [jieba.lcut(d[0]) for d in train_data]
-y_train = [int(d[1]) for d in train_data]
-x_dev = [jieba.lcut(d[0]) for d in dev_data]
-y_dev = [int(d[1]) for d in dev_data]
+# x_train = [jieba.lcut(d[0]) for d in train_data]
+# y_train = [int(d[1]) for d in train_data]
+# x_dev = [jieba.lcut(d[0]) for d in dev_data]
+# y_dev = [int(d[1]) for d in dev_data]
 
 # 建立分词器
 tokenizer = Tokenizer()  # 创建一个Tokenizer对象，将一个词转换为正整数
-tokenizer.fit_on_texts([jieba.lcut(d[0]) for d in train_data])  # 将词编号，词频越大，编号越小
-x_train = tokenizer.texts_to_sequences(x_train)  # 将测试集列表中每个词转换为数字
-x_dev = tokenizer.texts_to_sequences(x_dev)  # 将测试集列表中每个词转换为数字
-train_data = [(x, y) for x, y in zip(x_train, y_train)]
-dev_data = [(x, y) for x, y in zip(x_dev, y_dev)]
+tokenizer.fit_on_texts([list(d[0]) for d in train_data])  # 将词编号，词频越大，编号越小
+# x_train = tokenizer.texts_to_sequences(x_train)  # 将测试集列表中每个词转换为数字
+# x_dev = tokenizer.texts_to_sequences(x_dev)  # 将测试集列表中每个词转换为数字
+# train_data = [(x, y) for x, y in zip(x_train, y_train)]
+# dev_data = [(x, y) for x, y in zip(x_dev, y_dev)]
 
 
 def build_model():
     main_input = Input(shape=(MAX_LEN,), dtype='float64')
     # 嵌入层（使用预训练的词向量）
     embed = Embedding(input_dim=len(tokenizer.index_word) + 1, output_dim=128)(main_input)
-    out = Bidirectional(LSTM(units=32))(embed)
+    out = Bidirectional(LSTM(units=64))(embed)
     out = Dropout(0.3)(out)
     main_output = Dense(num_classes, activation='softmax')(out)
     model = Model(inputs=main_input, outputs=main_output)
@@ -75,38 +95,25 @@ def build_model():
     return model
 
 
-class YqDataGenerator(object):
-    def __init__(self, data,  batch_size):
-        self.data = data
-        self.batch_size = batch_size
-        self.steps = len(self.data) // self.batch_size
-        if len(self.data) % self.batch_size != 0:
-            self.steps += 1
-
-    def __len__(self):
-        return self.steps
-
-    def __iter__(self, shuffle=False):
-        while True:
-            idxs = list(range(len(self.data)))
-            if shuffle:
-                np.random.shuffle(idxs)
-            X, Y = [], []
-            for i in idxs:
-                x, y = self.data[i]
-                if len(x) > MAX_LEN:
-                    X.append(x[:MAX_LEN])
-                else:
-                    X.append(x + [0] * (MAX_LEN - len(x)))
-                Y.append(y)
-                if len(X) == self.batch_size or i == idxs[-1]:
-                    yield np.array(X), np.array(Y)
-                    X, Y = [], []
+class TyDataGenerator(DataGenerator):
+    """数据生成器
+    """
+    def __iter__(self, random=False):
+        batch_token_ids, batch_labels = [], []
+        for is_end, (text, label) in self.sample(random):
+            token_ids = tokenizer.texts_to_sequences([list(text)])[0]
+            batch_token_ids.append(token_ids)
+            batch_labels.append(label)
+            if len(batch_token_ids) == self.batch_size or is_end:
+                batch_token_ids = sequence_padding(batch_token_ids, length=MAX_LEN)
+                yield batch_token_ids, batch_labels
+                batch_token_ids, batch_labels = [], []
 
 
 def evaluate(model, data):
     X, Y = [], []
     for x, y in data:
+        x = tokenizer.texts_to_sequences([list(x)])[0]
         if len(x) > MAX_LEN:
             X.append(x[:MAX_LEN])
         else:
@@ -114,9 +121,9 @@ def evaluate(model, data):
         Y.append(y)
     predict_Y = model.predict(np.array(X), batch_size=batch_size)
     y_predict = np.argmax(predict_Y, axis=1)
-    print(metrics.classification_report(np.array(Y), y_predict))
+    print(metrics.classification_report(np.array(Y), y_predict, digits=4))
     val_acc = np.mean(np.equal(np.argmax(predict_Y, axis=1), np.array(Y)))
-    return val_acc
+    return float(val_acc)
 
 
 class Evaluator(Callback):
@@ -137,8 +144,8 @@ class Evaluator(Callback):
 if __name__ == '__main__':
     model = build_model()
 
-    train_data_generator = YqDataGenerator(train_data, batch_size=batch_size)
-    dev_data_generator = YqDataGenerator(dev_data, batch_size=batch_size)
+    train_data_generator = TyDataGenerator(train_data, batch_size=batch_size)
+    dev_data_generator = TyDataGenerator(dev_data, batch_size=batch_size)
 
     # call_reduce = ReduceLROnPlateau(monitor='val_acc',
     #                                 factor=0.95,
@@ -154,9 +161,10 @@ if __name__ == '__main__':
     with open(os.path.join(model_path, 'tokenizer.plk'), 'wb') as f:
         pickle.dump(tokenizer, f)
     evaluator = Evaluator(model, dev_data, os.path.join(model_path, 'best_model.weights'))
-    model.fit_generator(train_data_generator.__iter__(),
+    warm_up = WarmupExponentialDecay(lr_base=0.0002, decay=0.00002, warmup_epochs=2)
+    model.fit_generator(train_data_generator.forfit(),
                         steps_per_epoch=len(train_data_generator),
                         epochs=50,
-                        validation_data=dev_data_generator.__iter__(),
+                        validation_data=dev_data_generator.forfit(),
                         validation_steps=len(dev_data_generator),
                         callbacks=[evaluator])
