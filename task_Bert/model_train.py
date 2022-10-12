@@ -13,14 +13,7 @@ from bert4keras.tokenizers import Tokenizer
 from bert4keras.models import build_transformer_model
 from bert4keras.snippets import DataGenerator, sequence_padding
 project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-maxlen = 128
-batch_size = 16
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-config_path = '/u01/zqs/pre_train_models/chinese_L-12_H-768_A-12/bert_config.json'
-checkpoint_path = '/u01/zqs/pre_train_models/chinese_L-12_H-768_A-12/bert_model.ckpt'
-dict_path = '/u01/zqs/pre_train_models/chinese_L-12_H-768_A-12/vocab.txt'
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 def load_data(path):
@@ -33,26 +26,74 @@ def load_data(path):
     return data
 
 
+def load_pre_model(model_name='bert'):
+    """
+    :param model_name: bert、bert-wwm、albert、roberta、roberta-wwm、nezha、t5
+    :return:
+    """
+    if model_name == 'bert':
+        config_path = '/home/zqs/pre_train_models/chinese_L-12_H-768_A-12/bert_config.json'
+        checkpoint_path = '/home/zqs/pre_train_models/chinese_L-12_H-768_A-12/bert_model.ckpt'
+        dict_path = '/home/zqs/pre_train_models/chinese_L-12_H-768_A-12/vocab.txt'
+        _model = 'bert'
+    elif model_name == 'bert-wwm':
+        config_path = '/home/zqs/pre_train_models/chinese_wwm_ext_L-12_H-768_A-12/bert_config.json'
+        checkpoint_path = '/home/zqs/pre_train_models/chinese_wwm_ext_L-12_H-768_A-12/bert_model.ckpt'
+        dict_path = '/home/zqs/pre_train_models/chinese_wwm_ext_L-12_H-768_A-12/vocab.txt'
+        _model = 'bert'
+    elif model_name == 'albert':
+        raise Exception("not support yet.")
+    elif model_name == 'roberta':
+        raise Exception("not support yet.")
+    elif model_name == 'roberta-wwm':
+        config_path = '/home/zqs/pre_train_models/chinese_roberta_wwm_ext_L-12_H-768_A-12/bert_config.json'
+        checkpoint_path = '/home/zqs/pre_train_models/chinese_roberta_wwm_ext_L-12_H-768_A-12/bert_model.ckpt'
+        dict_path = '/home/zqs/pre_train_models/chinese_roberta_wwm_ext_L-12_H-768_A-12/vocab.txt'
+        _model = 'roberta'
+    elif model_name == 'nezha':
+        config_path = '/home/zqs/pre_train_models/NEZHA-Base/bert_config.json'
+        checkpoint_path = '/home/zqs/pre_train_models/NEZHA-Base/model.ckpt-900000'
+        dict_path = '/home/zqs/pre_train_models/NEZHA-Base/vocab.txt'
+        _model = 'nezha'
+    elif model_name == 't5':
+        config_path = '/home/zqs/pre_train_models/chinese_t5_pegasus_base/bert_config.json'
+        checkpoint_path = '/home/zqs/pre_train_models/chinese_t5_pegasus_base/model.ckpt-900000'
+        dict_path = '/home/zqs/pre_train_models/chinese_t5_pegasus_base/vocab.txt'
+        _model = 't5'
+    else:
+        raise Exception("not support yet.")
+    # 建立分词器
+    pre_tokenizer = Tokenizer(dict_path, do_lower_case=True)
+    # 加载预训练模型
+    pre_model = build_transformer_model(
+        config_path=config_path,
+        checkpoint_path=checkpoint_path,
+        model=_model,
+        return_keras_model=False
+    )
+    return pre_tokenizer, pre_model
+
+
+maxlen = 256
+batch_size = 16
 # 加载数据集
 train_data = load_data(os.path.join(project_path, 'data', 'iflytek_public', 'train.json'))
 num_classes = len(set([d[1] for d in train_data]))
 dev_data = load_data(os.path.join(project_path, 'data', 'iflytek_public', 'dev.json'))
-# 建立分词器
-tokenizer = Tokenizer(dict_path, do_lower_case=True)
+tokenizer, bert = load_pre_model(model_name='nezha')
 
 
-class data_generator(DataGenerator):
+class TyDataGenerator(DataGenerator):
     """数据生成器
     """
     def __iter__(self, random=False):
         batch_token_ids, batch_segment_ids, batch_labels = [], [], []
         for is_end, (text, label) in self.sample(random):
             token_ids, segment_ids = tokenizer.encode(text, maxlen=maxlen)
-            for i in range(2):
-                batch_token_ids.append(token_ids)
-                batch_segment_ids.append(segment_ids)
-                batch_labels.append([int(label)])
-            if len(batch_token_ids) == self.batch_size * 2 or is_end:
+            batch_token_ids.append(token_ids)
+            batch_segment_ids.append(segment_ids)
+            batch_labels.append([int(label)])
+            if len(batch_token_ids) == self.batch_size or is_end:
                 batch_token_ids = sequence_padding(batch_token_ids)
                 batch_segment_ids = sequence_padding(batch_segment_ids)
                 batch_labels = sequence_padding(batch_labels)
@@ -61,16 +102,9 @@ class data_generator(DataGenerator):
 
 
 # 转换数据集
-train_generator = data_generator(train_data, batch_size)
-dev_generator = data_generator(dev_data, batch_size)
+train_generator = TyDataGenerator(train_data, batch_size)
+dev_generator = TyDataGenerator(dev_data, batch_size)
 
-# 加载预训练模型
-bert = build_transformer_model(
-    config_path=config_path,
-    checkpoint_path=checkpoint_path,
-    dropout_rate=0.3,
-    return_keras_model=False,
-)
 output = Lambda(lambda x: x[:, 0])(bert.model.output)
 output = Dense(
     units=num_classes,
@@ -135,7 +169,7 @@ if __name__ == '__main__':
     model.fit(
         train_generator.forfit(),
         steps_per_epoch=len(train_generator),
-        epochs=50,
+        epochs=10,
         callbacks=[evaluator]
     )
 
