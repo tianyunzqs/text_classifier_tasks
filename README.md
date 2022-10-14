@@ -76,17 +76,26 @@ word=vectorizer.get_feature_names()
 
 ## 3. 模型结果
 
-|模型|accuracy|
-| :---: | :---: | 
-|knn|0.5514|
-|decision tree|0.4317|
-|random forest|0.4856|
-|logistic regression|0.5133|
-|native bayes|0.5383|
-|svm|0.5583|
-|xgboost|0.5190|
-|lightgbm|0.5106|
-|fasttext|0.5329|
-|textcnn|0.5468|
-|bilstm|0.4821|
-|bilstm+attention|0.5264|
+|模型|accuracy|备注|
+| :---: | :---: | :---: | 
+|knn|0.5514||
+|decision tree|0.4317||
+|random forest|0.4856||
+|logistic regression|0.5133||
+|native bayes|0.5383||
+|svm|0.5583||
+|xgboost|0.5190||
+|lightgbm|0.5106||
+|fasttext|0.5329||
+|textcnn|0.5468||
+|bert|0.6098||
+|bert+textcnn|0.5937|将bert当word-embedding，<br>textcnn输入为bert输出|
+|bert+textcnn2|0.5972|将bert输出cls拼接textcnn输出，<br>textcnn输入为bert输入中token经过独立embedding|
+|bilstm|0.4821||
+|bilstm+attention|0.5264||
+|nezha|0.6110||
+|bert+rdrop|0.6152||
+|bert+adversarial_training|0.6110||
+
+说明1：以下结果未经过详尽的调参，只是一个参考结果，调参后可能效果更佳~  
+说明2：bert+textcnn效果变差，可参考[https://www.zhihu.com/question/477075127](https://www.zhihu.com/question/477075127)  
