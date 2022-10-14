@@ -96,6 +96,7 @@ word=vectorizer.get_feature_names()
 |nezha|0.6110||
 |bert+rdrop|0.6152||
 |bert+adversarial_training|0.6110||
+|bert+gradient_penalty|0.6137||
 
-说明1：以下结果未经过详尽的调参，只是一个参考结果，调参后可能效果更佳~  
+说明1：以上结果未经过详尽的调参，只是一个参考结果，调参后可能效果更佳~  
 说明2：bert+textcnn效果变差，可参考[https://www.zhihu.com/question/477075127](https://www.zhihu.com/question/477075127)  
